@@ -155,9 +155,9 @@ class response:
         out.append(self.inn)
         outArgs = []
         for a in self.args:
-            if isinstance(a,discord.Member):
+            try:
                 outArgs.append(userPlaceholder(a.id))
-            else:
+            except:
                 outArgs.append(a)
         out.append(tuple(outArgs))
         out.append(self.usePrefix)
@@ -1175,8 +1175,11 @@ async def iterator():
 
 async def cacheLoop():
     while True:
-        await asyncio.sleep(AUTO_CACHE_DELAY)
-        writeCache()
+        try:
+            await asyncio.sleep(AUTO_CACHE_DELAY)
+            writeCache()
+        except Exception as e:
+            print("Autosave Exception: {}".format(e))
 
 try:
     asyncio.ensure_future(loadCache())
