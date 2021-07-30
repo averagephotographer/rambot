@@ -21,6 +21,7 @@ KEY_CHARACTER = 'ram '
 POST_IMAGES = False
 
 CACHE = "./cache.pkl"
+AUTO_CACHE_DELAY = 60*5
 
 BARASU = 691843825483776100
 AVERAGE_PHOTOGRAPHER_SPAM = 680843866349633568
@@ -155,8 +156,6 @@ class response:
         outArgs = []
         for a in self.args:
             if isinstance(a,discord.Member):
-                global userCache
-                userCache.append(a.id)
                 outArgs.append(userPlaceholder(a.id))
             else:
                 outArgs.append(a)
@@ -288,6 +287,7 @@ class waiter():
         self.label = "normal"
         self.time = time
         self.place = place
+        self.catchup = False
         if isinstance(content,str):
             self.content = item("text",content)
         else:
@@ -298,11 +298,16 @@ class waiter():
         for name,value in kwargs.items():
             if name == "label":
                 self.label = value
+            elif name == "catchup":
+                self.catchup = value
             else:
                 print("bad kwarg in waiter")
 
     def setEndtime(self):
-        return datetime.timedelta(seconds = self.time) + self.endtime
+        if self.catchup:
+            return datetime.timedelta(seconds = self.time) + self.endtime
+        else:
+            return datetime.timedelta(seconds = self.time) + datetime.datetime.now()
 
     def reset(self):
         self.endtime = self.setEndtime()
@@ -357,6 +362,13 @@ class dailyCleanup(dailyPoster):
 
     def go(self):
         pass
+class cacheWaiter(waiter):
+    def __init__(self,delayMinutes):
+        waiter.__init__(self,delayMinutes*60,None,None,-1,catchup = False)
+
+    async def go(self):
+        writeCache()
+        self.endtime = self.setEndtime()
 
 class Format:
     def __init__(self):
@@ -971,10 +983,11 @@ def echo(*args):
         out.append(item("text",i))
     return out
 
+
 def writeCache():
+    print("Writing to cache...")
     with open(CACHE, 'wb') as outFile:
         pickle.dump((responses,waiters),outFile)
-
 
 async def loadCache():
     global responses
@@ -983,12 +996,7 @@ async def loadCache():
         cache = pickle.load(inFile)
     responses = cache[0]
     waiters = cache[1]
-    
 
-def writeCacheDebug():
-    with open(CACHE,'wb') as outFile:
-        for i in responses:
-            pickle.dump(i,outFile)
 
 def remove(label):
     r = findResponse(label)
@@ -1050,13 +1058,11 @@ def reset():
     global responses
     global waiters
     responses = [
-    #    exit("exit"),
         response(["cancel","stop"],passMessage = True,function = cancel),
         response(["hello","hi"], ["Hello Barasu", "Hello", "hey"]),
         response(["hello ram","hi ram","ram hello","ram hi"],["Hello Barasu", "Hello", "hey"],usePrefix = False),
         response("Ping", "Pong"),
         response("Marco", "Polo",usePrefix = False),
-    #    time(["time","what time is it?","what time is it"]),
         response("b.rem","Who's Rem?",usePrefix = False),
         response("flip a coin",["Heads","Tails"]),
         response(["snap?","snap"],["Death","Mercy"]),
@@ -1081,8 +1087,8 @@ def reset():
         response("Function test",None,"hello World",function = echo),
     #    response("30 seconds?","not yet",label = "30seconds"),
         response("webwork",function = webwork,takeArgs = True,parse = False,passMessage = True),
-        response("tictactoe","here",ticBoard,F.ticTacToe,function = gameInit,passMessage = True),
-        response(["connect four beta","fonnect cour beta"],"here",connectFourBoard,F.connectFour,function = gameInit,passMessage = True),
+        response(["tictactoe","tic tac toe"],"here",ticBoard,F.ticTacToe,function = gameInit,passMessage = True),
+        response(["connect four","fonnect cour","connectfour"],"here",connectFourBoard,F.connectFour,function = gameInit,passMessage = True),
         response("chess","here",chessBoard,F.chess,function = gameInit,passMessage = True),
         response(["interpolate","interp"],None,function = interpolate,takeArgs = True),
         response("bakamemes","OK",function = bakaMemes,locked = True)
@@ -1095,8 +1101,9 @@ def reset():
         randDailyPoster(SCREAM_CHAMBER_BOT_SPAM,item("text","owo daily")),
         randDailyPoster(SCREAM_CHAMBER_BOT_SPAM,item("text","m.e")),
     #    waiter(15,AVERAGE_PHOTOGRAPHER_SPAM,runAtSend(redditRetrieve,2,"dankmemes","new"),4)
-        waiter(10,AVERAGE_PHOTOGRAPHER_SPAM,item("text","Heartbeat"),10)
+        waiter(10,AVERAGE_PHOTOGRAPHER_SPAM,item("text","Heartbeat"),10),
     #    removeResponse(30,AVERAGE_PHOTOGRAPHER_SPAM,"30seconds","30 seconds have passed")
+    #    cacheWaiter(1)
         ]
 #if waiters[0].endtime+datetime.timedelta(days = -1)>datetime.datetime.now():
 #    waiters[0].endtime = waiters[0].endtime + datetime.timedelta(days = -1)
@@ -1166,6 +1173,11 @@ async def iterator():
         except Exception as e:
             print("iterator error: {}".format(e))
 
+async def cacheLoop():
+    while True:
+        await asyncio.sleep(AUTO_CACHE_DELAY)
+        writeCache()
+
 try:
     asyncio.ensure_future(loadCache())
 except Exception as e:
@@ -1174,6 +1186,7 @@ except Exception as e:
 mainLoop = asyncio.get_event_loop()
 try:
     asyncio.ensure_future(iterator())
+    asyncio.ensure_future(cacheLoop())
     print("here")
     with open('key.txt','r') as key:
 #        print(key.read())
@@ -1183,5 +1196,6 @@ except Exception as e:
     print(e)
 finally:
     print("closing loop")
+    writeCache()
     mainLoop.close()
 
