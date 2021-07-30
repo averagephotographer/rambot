@@ -21,8 +21,6 @@ KEY_CHARACTER = 'ram '
 POST_IMAGES = False
 
 CACHE = "./cache.pkl"
-USER_CACHE = "./usercache.pkl"
-userCache = [] #for storing user ids to load into client cache on pickle load
 
 BARASU = 691843825483776100
 AVERAGE_PHOTOGRAPHER_SPAM = 680843866349633568
@@ -180,11 +178,13 @@ class response:
         self.label = data[0]
         self.inn = data[1]
         args = []
-        for a in data[2]:
-            if isinstance(a,userPlaceholder):
-                args.append(a.user)
-            else:
-                args.append(a)
+        for i in range(len(data[2])):
+            try:
+                args.append(data[2][i].user())
+                if args[i] == None:
+                    asyncio.ensure_future(self.fetchUser(data[2][i].id,i))
+            except:
+                args.append(data[2][i])
         self.args = tuple(args)
         self.usePrefix = data[3]
         self.user = data[4]
@@ -197,6 +197,14 @@ class response:
         self.passMessage = data[11]
         self.format = data[12]
         self.out = data[13]
+
+    async def fetchUser(self,id,index):
+        args = list(self.args)
+        args[index] = await client.fetch_user(id)
+        if args[index] == None:
+            print("Fetch user failed on response {}:{} -> {}".format(self.label,self.inn,self.out))
+        else:
+            self.args = tuple(args)
 
     def messageIn(self,message):
         text = message.content
@@ -481,6 +489,7 @@ def gameInit(message,board,inputFormat):
 
 def game(message,opponent,board,inputFormat,move):
     move = move.lower()
+    print(message.__module__)
     label = board.title+str(message.author.id+opponent.id)+str(message.channel.id)
     if board.isLegal(message.author.id,move):
         board.move(message.author.id,move)
@@ -506,17 +515,18 @@ def game(message,opponent,board,inputFormat,move):
         return item("text","that is not a valid move")
 
 class gameBoard:
-    def __getstate__(self):
-        global userCache
-        userCache.append(self.p1)
-        userCache.append(self.p2)
-        return (self.p1,self.p2,self.board)
-    
-    def __setState__(self,data):
-        p1 = data[0]
-        p2 = data[1]
-        self.__init__(p1,p2)
-        self.board = data[2]
+    pass
+    #def __getstate__(self):
+    #    global userCache
+    #    userCache.append(self.p1)
+    #    userCache.append(self.p2)
+    #    return (self.p1,self.p2,self.board)
+   # 
+   # def __setState__(self,data):
+    #    p1 = data[0]
+    #    p2 = data[1]
+    #    self.__init__(p1,p2)
+    #    self.board = data[2]
 
 class ticBoard(gameBoard):
     def __init__(self,player1,player2):
@@ -962,12 +972,8 @@ def echo(*args):
     return out
 
 def writeCache():
-    global userCache
     with open(CACHE, 'wb') as outFile:
-        pickle.dump((responses,0),outFile)
-    #with open(USER_CACHE,'wb') as outFile:
-    #    pickle.dump(userCache,outFile)
-    #userCache = []
+        pickle.dump((responses,waiters),outFile)
 
 
 async def loadCache():
@@ -976,21 +982,13 @@ async def loadCache():
     with open(CACHE, 'rb') as inFile:
         cache = pickle.load(inFile)
     responses = cache[0]
-    #waiters = cache[1]
-    #with open(USER_CACHE, 'rb') as inFile:
-    #    cache = pickle.load(inFile)
-    #ids = cache
-    #for id in ids:
-    #    await client.fetch_user(id)
+    waiters = cache[1]
+    
 
 def writeCacheDebug():
-    global userCache
     with open(CACHE,'wb') as outFile:
         for i in responses:
             pickle.dump(i,outFile)
-    #with open(USER_CACHE,'wb') as outFile:
-    #    pickle.dump(userCache,outFile)
-    userCache = []
 
 def remove(label):
     r = findResponse(label)
