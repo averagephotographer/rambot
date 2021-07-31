@@ -814,14 +814,14 @@ class chessBoard(gameBoard):
             return False
         if not [outx,outy] in self.canSee(inx,iny):
             return False
-        newBoard = self.board
-        newBoard[outx][outy] = newBoard[inx][iny]
-        newBoard[inx][iny] = None
-        for x in range(8):
-            for y in range(8):
-                for i in self.canSee(x,y,newBoard):
-                    if newBoard[i[0]][i[1]] == color+'k':
-                        return "That leaves you in check"
+        #newBoard = self.board
+        #newBoard[outx][outy] = newBoard[inx][iny]
+        #newBoard[inx][iny] = None
+        #for x in range(8):
+        #    for y in range(8):
+        #        for i in self.canSee(x,y,newBoard):
+        #            if newBoard[i[0]][i[1]] == color+'k':
+        #                return "That leaves you in check"
         return True
     
     def move(self,player,move):
