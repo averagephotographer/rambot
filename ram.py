@@ -502,7 +502,8 @@ def gameInit(message,board,inputFormat):
 def game(message,opponent,board,inputFormat,move):
     move = move.lower()
     label = board.title+str(message.author.id+opponent.id)+str(message.channel.id)
-    if board.isLegal(message.author.id,move):
+    legal = board.isLegal(message.author.id,move)
+    if legal == True:
         board.move(message.author.id,move)
         gg = board.gameOver()
         if gg != None:
@@ -523,7 +524,10 @@ def game(message,opponent,board,inputFormat,move):
         return package(item("text",opponent.mention+" your move"),outputBoard)
     else: 
         findWaiter(label).reset()
-        return item("text","that is not a valid move")
+        if legal == False:
+            return item("text","that is not a valid move")
+        else:
+            return item('text',legal)
 
 class gameBoard:
     pass
@@ -711,48 +715,117 @@ class chessBoard(gameBoard):
                 fileName = "./gameboards/chessboard{}.png".format(self.p1+self.p2)
                 cv2.imwrite(fileName,boardImage)
         return item("file",fileName)
-    
-    def canSee(self,f,r):
+
+
+    def canSee(self,inx,iny,board = -1):
+        if board == -1: board = self.board
+        piece = board[inx][iny]
+        if piece == None:
+            return []
         def realSpot(x,y):
             if x<0 or x>7 or y<0 or y>7:
                 return False
             return True
+        def check(x,y): #output in form [add space to output, check next]
+            if x==inx and y==iny:
+                return False,True
+            if not realSpot(x,y):
+                return False,False
+            if board[x][y] == None:
+                return True,True
+            if board[x][y][0] == piece[0]:
+                return False,False
+            return True,False # encounters piece of different color
+
         output = []
-        piece = self.board[f][r]
-        if piece == None:
-            return output
         if piece[1] == 'p':
             if piece[0] == 'w':
                 delta = 1
             else:
                 delta = -1
-        x = f
-        y = r+delta
-        if self.board[x][y] == None:
-            output.append([x,y])
+            if realSpot(inx,iny+delta) and board[inx][iny+delta] == None:
+                output.append([inx,iny+delta])
+                if (iny-delta == 0 or iny-delta == 7) and board[inx][iny+(delta*2)] == None:
+                    output.append([inx,iny+(2*delta)])                    
+            if realSpot(inx+1,iny+delta) and board[inx+1][iny+delta] != None and board[inx+1][iny+delta][0] != piece[0]:
+                output.append([inx+1,iny+delta])
+            if realSpot(inx-1,iny+delta) and board[inx-1][iny+delta] != None and board[inx-1][iny+delta][0] != piece[0]:
+                output.append([inx-1,iny+delta])
         if piece[1] == 'r' or piece[1] == 'q':
-            pass
+            for outx in range(inx,8):
+                r = check(outx,iny)
+                if r[0]: output.append([outx,iny])
+                if not r[1]: break
+            for outx in range(inx,-1,-1):
+                r = check(outx,iny)
+                if r[0]: output.append([outx,iny])
+                if not r[1]: break
+            for outy in range(iny,8):
+                r = check(inx,outy)
+                if r[0]: output.append([inx,outy])
+                if not r[1]: break
+            for outy in range(iny,-1,-1):
+                r = check(inx,outy)
+                if r[0]: output.append([inx,outy])
+                if not r[1]: break
         if piece[1] == 'b' or piece[1] == 'q':
-            pass
-        if piece[1] == 'n':
-            pass
-        if piece[1] == 'k':
-            pass
+            for i in range(8):
+                r = check(inx+i,iny+i)
+                if r[0]: output.append([inx+i,iny+i])
+                if not r[1]: break
+            for i in range(8):
+                r = check(inx-i,iny+i)
+                if r[0]: output.append([inx-i,iny+i])
+                if not r[1]: break
+            for i in range(8):
+                r = check(inx+i,iny-i)
+                if r[0]: output.append([inx+i,iny-i])
+                if not r[1]: break
+            for i in range(8):
+                r = check(inx-i,iny-i)
+                if r[0]: output.append([inx-i,iny-i])
+                if not r[1]: break
+        if piece[1] == 'n' or piece[1] == 'k':
+            if piece[1] == 'n':
+                targets = [[inx+2,iny+1],[inx+2,iny-1],[inx+1,iny+2],[inx+1,iny-2],[inx-1,iny+2],[inx-1,iny-2],[inx-2,iny+1],[inx-2,iny-1]]
+            else:
+                targets = []
+                for i in range(-1,2):
+                    for x in range(-1,2):
+                        targets.append([inx+i,iny+x])
+            for i in targets:
+                x = i[0]
+                y = i[1]
+                if realSpot(x,y) and (board[x][y] == None or board[x][y][0] != piece[0]):
+                    output.append([x,y])
         return output
 
     def isLegal(self,player,move):
-        inX = self.fileRef[move[0]]
-        inY = int(move[1])-1
-        outX = self.fileRef[move[3]]
-        outY = int(move[4])-1
-
-        return True
-    
-    def move(self,player,move):
-        if player == self.p1:
+        if player == self.p2:
             color = 'w'
         else:
             color = 'b'
+        inx = self.fileRef[move[0]]
+        iny = int(move[1])-1
+        outx = self.fileRef[move[3]]
+        outy = int(move[4])-1
+        piece = self.board[inx][iny]
+        if piece == None or piece[0] != color:
+            return False
+        if not [outx,outy] in self.canSee(inx,iny):
+            return False
+        newBoard = self.board
+        newBoard[outx][outy] = newBoard[inx][iny]
+        newBoard[inx][iny] = None
+        for x in range(8):
+            for y in range(8):
+                for i in self.canSee(x,y,newBoard):
+                    if newBoard[i[0]][i[1]] == color+'k':
+                        return "That leaves you in check"
+        return True
+    
+    def move(self,player,move):
+        
         self.board[self.fileRef[move[3]]][int(move[4])-1] = self.board[self.fileRef[move[0]]][int(move[1])-1]
         self.board[self.fileRef[move[0]]][int(move[1])-1] = None
     def gameOver(self):
