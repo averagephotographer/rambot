@@ -491,7 +491,7 @@ def gameInit(message,board,inputFormat):
     board = board(message.author.id,message.mentions[0].id)
     label = board.title+str(message.author.id+message.mentions[0].id)+str(message.channel.id)
     if findResponse(label)!=None:
-        return item("text","game with "+message.mentions[0].display_name+" active, send 'ram cancel' on your turn to cancel the game")
+        return item("text","{} game with {} active, send 'ram cancel' on your turn to cancel the game".format(board.title,message.mentions[0].display_name))
     print("set the board")
     global responses
     responses.append(response("",None,message.author,board,inputFormat,function = game,usePrefix = False,takeArgs = True, parse = False,channel = message.channel.id,user = message.mentions[0].id,passMessage = True,format = inputFormat,label = label))
@@ -501,7 +501,6 @@ def gameInit(message,board,inputFormat):
 
 def game(message,opponent,board,inputFormat,move):
     move = move.lower()
-    print(message.__module__)
     label = board.title+str(message.author.id+opponent.id)+str(message.channel.id)
     if board.isLegal(message.author.id,move):
         board.move(message.author.id,move)
@@ -610,13 +609,11 @@ class connectFourBoard(gameBoard):
         self.expiration = DAY*7
 
     def out(self):
-        print("making output")
         b = []
         for i in range(5,-1,-1):
             for x in range(7):
                 b.append(self.board[x][i])
         b = tuple(b)
-        print("made tuple len: "+ str(len(b)))
         return item("text","\
 .  1    2    3    4   5    6    7\n\
 | {} | {} | {} | {} | {} | {} | {} |\n\
@@ -656,8 +653,8 @@ class connectFourBoard(gameBoard):
             for x in range(4):
                 if "   "!=b[x][i]==b[x+1][i]==b[x+2][i]==b[x+3][i]:
                     return winner(b[x][i])
-        for  i in range(4):
-            for x in range(3):
+        for  x in range(4):
+            for i in range(3):
                 if "   "!=b[x][i]==b[x+1][i+1]==b[x+2][i+2]==b[x+3][i+3]:
                     return winner(b[x][i])
                 if "   "!=b[x+3][i]==b[x+2][i+1]==b[x+1][i+2]==b[x][i+3]:
@@ -1059,7 +1056,6 @@ def reset():
     global waiters
     responses = [
         response(["cancel","stop"],passMessage = True,function = cancel),
-        response(["hello","hi"], ["Hello Barasu", "Hello", "hey"]),
         response(["hello ram","hi ram","ram hello","ram hi"],["Hello Barasu", "Hello", "hey"],usePrefix = False),
         response("Ping", "Pong"),
         response("Marco", "Polo",usePrefix = False),
