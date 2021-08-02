@@ -505,7 +505,7 @@ def game(message,opponent,board,inputFormat,move):
     legal = board.isLegal(message.author.id,move)
     if legal == True:
         board.move(message.author.id,move)
-        gg = board.gameOver()
+        gg = board.gameOver(message.author.id)
         if gg != None:
             remove(label)
             if gg == "stalemate":
@@ -576,7 +576,7 @@ c  {} |  {} | {}".format(self.board[0][0],self.board[0][1],self.board[0][2],self
         elif player == self.p2:
             self.board[self.key[move[0]]][self.key[move[1]]] = 'X'
 
-    def gameOver(self):
+    def gameOver(self,player):
         def winner(c):
             if c == 'O':
                 return self.p1
@@ -643,7 +643,7 @@ class connectFourBoard(gameBoard):
                     self.board[int(move)-1][i] = 'X'
                 break
 
-    def gameOver(self):
+    def gameOver(self,player):
         def winner(c):
             if c == 'O':
                 return self.p1
@@ -800,36 +800,66 @@ class chessBoard(gameBoard):
                     output.append([x,y])
         return output
 
-    def isLegal(self,player,move):
+    def isLegal(self,player,move,decodeMove = True):
         if player == self.p2:
             color = 'w'
         else:
             color = 'b'
-        inx = self.fileRef[move[0]]
-        iny = int(move[1])-1
-        outx = self.fileRef[move[3]]
-        outy = int(move[4])-1
+        if decodeMove:
+            inx = self.fileRef[move[0]]
+            iny = int(move[1])-1
+            outx = self.fileRef[move[3]]
+            outy = int(move[4])-1
+        else:
+            inx = move[0][0]
+            iny = move[0][1]
+            outx = move[1][0]
+            outy = move[1][1]
         piece = self.board[inx][iny]
         if piece == None or piece[0] != color:
             return False
         if not [outx,outy] in self.canSee(inx,iny):
             return False
-        #newBoard = self.board
-        #newBoard[outx][outy] = newBoard[inx][iny]
-        #newBoard[inx][iny] = None
-        #for x in range(8):
-        #    for y in range(8):
-        #        for i in self.canSee(x,y,newBoard):
-        #            if newBoard[i[0]][i[1]] == color+'k':
-        #                return "That leaves you in check"
+        newBoard = []
+        for x in range(8):
+            newBoard.append([])
+            for y in range(8):
+                newBoard[x].append(self.board[x][y])
+        newBoard[outx][outy] = newBoard[inx][iny]
+        newBoard[inx][iny] = None
+        for x in range(8):
+            for y in range(8):
+                if newBoard[x][y] != None and newBoard[x][y][0] != color:
+                    for i in self.canSee(x,y,newBoard):
+                        if newBoard[i[0]][i[1]] == color+'k':
+                            return "That leaves you in check"
         return True
     
     def move(self,player,move):
-        
         self.board[self.fileRef[move[3]]][int(move[4])-1] = self.board[self.fileRef[move[0]]][int(move[1])-1]
         self.board[self.fileRef[move[0]]][int(move[1])-1] = None
-    def gameOver(self):
-        return None
+    def gameOver(self,player):
+        if player == self.p1:
+            opponent = self.p2
+            opponentColor = 'w'
+        else:
+            opponent = self.p1
+            opponentColor = 'b'
+        for x in range(8):
+            for y in range(8):
+                if self.board[x][y] != None and self.board[x][y][0] == opponentColor:
+                    for i in self.canSee(x,y):
+                        if self.isLegal(opponent,[[x,y],[i[0],i[1]]],False) == True:
+                            return None
+        #there are no legal move past this point and the game is over
+        for x in range(8):
+            for y in range(8):
+                if self.board[x][y] != None and self.board[x][y][0] != opponentColor:
+                    for i in self.canSee(x,y,self.board):
+                        if self.board[i[0]][i[1]] == opponentColor+'k':
+                            return player
+        #past here the opponent is not in check
+        return "Stalemate"
 
 def webwork(message,problem):
     print("in")
